@@ -1,3 +1,8 @@
+-include .env
+
+MIGRATION_DIR := ./migration/postgres
+MIGRATION_DSN := postgres://$(APP_REPOSITORY_POSTGRES_USERNAME):$(APP_REPOSITORY_POSTGRES_PASSWORD)@$(APP_REPOSITORY_POSTGRES_ADDRESS)/$(APP_REPOSITORY_POSTGRES_NAME)?sslmode=disable
+
 # =============================================================================
 # Переменные
 # =============================================================================
@@ -26,6 +31,21 @@ build: ## Сборка приложения
 .PHONY: test
 test: ## Запуск тестов
 	go test -count=1 -v ./...
+
+# =============================================================================
+# Миграции
+# =============================================================================
+.PHONY: migrate-up
+migrate-up: ## Применить все миграции
+	migrate -database "$(MIGRATION_DSN)" -path $(MIGRATION_DIR) up
+
+.PHONY: migrate-down
+migrate-down: ## Откатить все миграции
+	migrate -database "$(MIGRATION_DSN)" -path $(MIGRATION_DIR) down -all
+
+.PHONY: migrate-create
+migrate-create: ## Создать новую миграцию (NAME=имя)
+	migrate create -ext sql -dir $(MIGRATION_DIR) -seq $(NAME)
 
 # =============================================================================
 # Качество кода
