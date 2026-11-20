@@ -53,22 +53,20 @@ func (p *httpProc) StartAsync(ctx context.Context, wg *sync.WaitGroup) {
 		lc := net.ListenConfig{}
 		l, err := lc.Listen(ctx, "tcp", p.addr)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to listen")
-			return
+			log.Fatal().Err(err).Msg("failed to listen")
 		}
 
 		go p.serve(l)
 		log.Info().Str("listen_addr", p.addr).Msg("Listening of TCP addr for HTTP server has been started")
 
-		<-ctx.Done()
-		log.Info().Msg("Shutdown is requested")
+		processor.WatchForShutdown(ctx, wg, l)
 
-		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
-
-		if err := p.server.Shutdown(shutdownCtx); err != nil {
-			log.Error().Err(err).Msg("HTTP server shutdown error")
-		}
+		shutdownCloser := processor.CloserFunc(func() error {
+			shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer cancel()
+			return p.server.Shutdown(shutdownCtx)
+		})
+		processor.WatchForShutdown(ctx, wg, shutdownCloser)
 	}()
 }
 
