@@ -2,7 +2,6 @@ package builder
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -38,13 +37,15 @@ type Builder struct {
 func NewBuilder(cCtx *cli.Context) *Builder {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &Builder{
-		cCtx:     cCtx,
-		ctx:      ctx,
-		cancel:   cancel,
-		chErrors: make(chan error, 1),
+		cCtx:          cCtx,
+		ctx:           ctx,
+		cancel:        cancel,
+		chErrors:      make(chan error, 1),
+		healthHandler: rhealth.NewHandler(),
 	}
 
-	b.healthHandler = rhealth.NewHandler()
+	go b.waitForSignal()
+	go b.printErrors()
 
 	return b
 }
@@ -55,6 +56,7 @@ func (b *Builder) BuildConfig() *Builder {
 	}
 
 	config.Load(config.LoadArgs{
+		Output:          b.cCtx.App.Writer,
 		EnableSimpleLog: b.cCtx.Bool("no-json"),
 	})
 	b.cfg = config.Root
@@ -81,18 +83,48 @@ func (b *Builder) BuildProcHttp() *Builder {
 
 func (b *Builder) Run() error {
 	if b.err != nil {
+		log.Fatal().Err(b.err).Msg("Failed to initialize application")
 		return b.err
 	}
 
 	log.Info().Msg("Application initialized")
 
+	b.exec()
+
+	return b.err
+}
+
+func (b *Builder) waitForSignal() {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case err := <-b.chErrors:
+		b.err = err
+		b.cancel()
+	case sig := <-sigCh:
+		log.Info().Str("signal", sig.String()).Msg("Shutdown is requested")
+		b.cancel()
+	case <-b.ctx.Done():
+		return
+	}
+}
+
+func (b *Builder) printErrors() {
+	select {
+	case err := <-b.chErrors:
+		b.err = err
+		b.cancel()
+	case <-b.ctx.Done():
+		return
+	}
+}
+
+func (b *Builder) exec() {
 	for _, p := range b.processors {
 		p.StartAsync(b.ctx, &b.wg)
 	}
 
-	b.waitForSignal()
-
-	b.cancel()
 	b.wg.Wait()
 
 	if b.connPostgres != nil {
@@ -102,17 +134,4 @@ func (b *Builder) Run() error {
 	}
 
 	log.Info().Msg("Application completed")
-	return nil
-}
-
-func (b *Builder) waitForSignal() {
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case err := <-b.chErrors:
-		b.err = fmt.Errorf("application error: %w", err)
-	case sig := <-sigCh:
-		log.Info().Str("signal", sig.String()).Msg("Shutdown is requested")
-	}
 }
