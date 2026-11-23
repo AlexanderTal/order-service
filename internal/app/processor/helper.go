@@ -9,6 +9,20 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type CloserFunc func() error
+
+func (f CloserFunc) Close() error {
+	return f()
+}
+
+func NewCloserContextFunc(f func(ctx context.Context) error, ctx context.Context, timeout time.Duration) io.Closer {
+	return CloserFunc(func() error {
+		shutdownCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		return f(shutdownCtx)
+	})
+}
+
 func WatchForShutdown(ctx context.Context, wg *sync.WaitGroup, closer io.Closer) {
 	wg.Add(1)
 	go func() {
@@ -20,24 +34,10 @@ func WatchForShutdown(ctx context.Context, wg *sync.WaitGroup, closer io.Closer)
 	}()
 }
 
-func Wrap(wg *sync.WaitGroup, fn func() error) io.Closer {
+func Wrap(wg *sync.WaitGroup, f func() error) io.Closer {
 	return CloserFunc(func() error {
 		wg.Add(1)
 		defer wg.Done()
-		return fn()
-	})
-}
-
-type CloserFunc func() error
-
-func (f CloserFunc) Close() error {
-	return f()
-}
-
-func NewCloserContextFunc(timeout time.Duration, shutdown func(context.Context) error) io.Closer {
-	return CloserFunc(func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		return shutdown(ctx)
+		return f()
 	})
 }

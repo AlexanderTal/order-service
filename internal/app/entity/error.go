@@ -1,28 +1,63 @@
-package entity
+package httph
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+)
 
-type AppError struct {
-	Status  int
-	Message string
+type errorCtxKey struct{}
+
+type Middleware = func(http.Handler) http.Handler
+
+type errorContext struct {
+	err        error
+	statusCode int
 }
 
-func (e *AppError) Error() string {
-	return e.Message
+func ErrorPrepare(r *http.Request) *http.Request {
+	if r.Context().Value(errorCtxKey{}) != nil {
+		return r
+	}
+	ctx := context.WithValue(r.Context(), errorCtxKey{}, &errorContext{
+		statusCode: http.StatusOK,
+	})
+	return r.WithContext(ctx)
 }
 
-func (e *AppError) HTTPStatus() int {
-	return e.Status
-}
-
-func NewAppError(status int, message string) *AppError {
-	return &AppError{
-		Status:  status,
-		Message: message,
+func ErrorApply(r *http.Request, err error) {
+	ctx, ok := r.Context().Value(errorCtxKey{}).(*errorContext)
+	if ok {
+		ctx.err = err
 	}
 }
 
-var (
-	ErrNotFound      = NewAppError(http.StatusNotFound, "not found")
-	ErrAlreadyExists = NewAppError(http.StatusConflict, "already exists")
-)
+func ErrorGet(r *http.Request) error {
+	ctx, ok := r.Context().Value(errorCtxKey{}).(*errorContext)
+	if ok {
+		return ctx.err
+	}
+	return nil
+}
+
+func ErrorApplyStatusCode(r *http.Request, code int) {
+	ctx, ok := r.Context().Value(errorCtxKey{}).(*errorContext)
+	if ok {
+		ctx.statusCode = code
+	}
+}
+
+func ErrorGetStatusCode(r *http.Request) int {
+	ctx, ok := r.Context().Value(errorCtxKey{}).(*errorContext)
+	if ok && ctx.statusCode != 0 {
+		return ctx.statusCode
+	}
+	return http.StatusOK
+}
+
+func NewErrorMiddleware() Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, ErrorPrepare(r))
+		})
+	}
+}

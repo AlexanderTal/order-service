@@ -64,15 +64,15 @@ func (p *httpProc) StartAsync(ctx context.Context, wg *sync.WaitGroup) {
 	})
 	processor.WatchForShutdown(ctx, wg, listenerCloser)
 
-	shutdownCloser := processor.NewCloserContextFunc(5*time.Second, func(ctx context.Context) error {
+	shutdownCloser := processor.NewCloserContextFunc(func(ctx context.Context) error {
 		err := p.server.Shutdown(ctx)
 		if err != nil && !errors.Is(err, net.ErrClosed) {
 			return err
 		}
 		return nil
-	})
+	}, ctx, 5*time.Second)
 	processor.WatchForShutdown(ctx, wg, shutdownCloser)
-} // <--- ВОТ ЭТА СКОБКА БЫЛА ПОТЕРЯНА
+}
 
 func (p *httpProc) serve(l net.Listener) {
 	_ = p.server.Serve(l)
