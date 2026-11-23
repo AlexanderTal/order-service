@@ -2,6 +2,7 @@ package rprocessor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -46,29 +47,32 @@ func NewHTTP(hHealth rhandler.Health, cfg section.ProcessorWebServer) processor.
 }
 
 func (p *httpProc) StartAsync(ctx context.Context, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	lc := net.ListenConfig{}
+	l, err := lc.Listen(ctx, "tcp", p.addr)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to listen")
+	}
 
-		lc := net.ListenConfig{}
-		l, err := lc.Listen(ctx, "tcp", p.addr)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to listen")
+	go p.serve(l)
+	log.Info().Str("listen_addr", p.addr).Msg("Listening of TCP addr for HTTP server has been started")
+
+	listenerCloser := processor.CloserFunc(func() error {
+		if err := l.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+			return err
 		}
+		return nil
+	})
+	processor.WatchForShutdown(ctx, wg, listenerCloser)
 
-		go p.serve(l)
-		log.Info().Str("listen_addr", p.addr).Msg("Listening of TCP addr for HTTP server has been started")
-
-		processor.WatchForShutdown(ctx, wg, l)
-
-		shutdownCloser := processor.CloserFunc(func() error {
-			shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			defer cancel()
-			return p.server.Shutdown(shutdownCtx)
-		})
-		processor.WatchForShutdown(ctx, wg, shutdownCloser)
-	}()
-}
+	shutdownCloser := processor.NewCloserContextFunc(5*time.Second, func(ctx context.Context) error {
+		err := p.server.Shutdown(ctx)
+		if err != nil && !errors.Is(err, net.ErrClosed) {
+			return err
+		}
+		return nil
+	})
+	processor.WatchForShutdown(ctx, wg, shutdownCloser)
+} // <--- ВОТ ЭТА СКОБКА БЫЛА ПОТЕРЯНА
 
 func (p *httpProc) serve(l net.Listener) {
 	_ = p.server.Serve(l)

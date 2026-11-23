@@ -1,40 +1,28 @@
 package entity
 
-import (
-	"fmt"
-	"net/http"
-)
+import "net/http"
 
 type AppError struct {
-	Code    int
+	Status  int
 	Message string
-	Err     error
 }
 
 func (e *AppError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("%s: %v", e.Message, e.Err)
-	}
 	return e.Message
 }
 
 func (e *AppError) HTTPStatus() int {
-	return e.Code
+	return e.Status
 }
 
-func (e *AppError) Unwrap() error {
-	return e.Err
-}
-
-func NewAppError(code int, message string, err error) *AppError {
+func NewAppError(status int, message string) *AppError {
 	return &AppError{
-		Code:    code,
+		Status:  status,
 		Message: message,
-		Err:     err,
 	}
 }
 
 var (
-	ErrNotFound      = NewAppError(http.StatusNotFound, "not found", nil)
-	ErrAlreadyExists = NewAppError(http.StatusConflict, "already exists", nil)
+	ErrNotFound      = NewAppError(http.StatusNotFound, "not found")
+	ErrAlreadyExists = NewAppError(http.StatusConflict, "already exists")
 )

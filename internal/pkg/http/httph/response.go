@@ -26,10 +26,16 @@ func SendEmpty(w http.ResponseWriter, status int) {
 func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	var hc httpCoder
 	if errors.As(err, &hc) {
+		ErrorApply(r, hc)
+		ErrorApplyStatusCode(r, hc.HTTPStatus())
 		sendError(w, hc)
 		return
 	}
-	sendError(w, &defaultError{err: err})
+
+	defaultErr := &defaultError{err: err}
+	ErrorApply(r, defaultErr)
+	ErrorApplyStatusCode(r, defaultErr.HTTPStatus())
+	sendError(w, defaultErr)
 }
 
 func sendError(w http.ResponseWriter, err httpCoder) {

@@ -111,12 +111,16 @@ func (b *Builder) waitForSignal() {
 }
 
 func (b *Builder) printErrors() {
-	select {
-	case err := <-b.chErrors:
-		b.err = err
-		b.cancel()
-	case <-b.ctx.Done():
-		return
+	for {
+		select {
+		case err := <-b.chErrors:
+			log.Error().Err(err).Msg("application error")
+			b.err = err
+			b.cancel()
+			return
+		case <-b.ctx.Done():
+			return
+		}
 	}
 }
 

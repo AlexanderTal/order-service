@@ -2,29 +2,14 @@ package processor
 
 import (
 	"context"
+	"io"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
-type Closer interface {
-	Close() error
-}
-
-type CloserFunc func() error
-
-func (f CloserFunc) Close() error {
-	return f()
-}
-
-func NewCloserContextFunc(cancel context.CancelFunc) Closer {
-	return CloserFunc(func() error {
-		cancel()
-		return nil
-	})
-}
-
-func WatchForShutdown(ctx context.Context, wg *sync.WaitGroup, closer Closer) {
+func WatchForShutdown(ctx context.Context, wg *sync.WaitGroup, closer io.Closer) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -35,10 +20,24 @@ func WatchForShutdown(ctx context.Context, wg *sync.WaitGroup, closer Closer) {
 	}()
 }
 
-func Wrap(wg *sync.WaitGroup, fn func() error) Closer {
+func Wrap(wg *sync.WaitGroup, fn func() error) io.Closer {
 	return CloserFunc(func() error {
 		wg.Add(1)
 		defer wg.Done()
 		return fn()
+	})
+}
+
+type CloserFunc func() error
+
+func (f CloserFunc) Close() error {
+	return f()
+}
+
+func NewCloserContextFunc(timeout time.Duration, shutdown func(context.Context) error) io.Closer {
+	return CloserFunc(func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		return shutdown(ctx)
 	})
 }
