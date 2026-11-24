@@ -18,7 +18,9 @@ func ErrorPrepare(r *http.Request) *http.Request {
 	if r.Context().Value(errorCtxKey{}) != nil {
 		return r
 	}
-	ctx := context.WithValue(r.Context(), errorCtxKey{}, &errorContext{})
+	ctx := context.WithValue(r.Context(), errorCtxKey{}, &errorContext{
+		statusCode: http.StatusOK,
+	})
 	return r.WithContext(ctx)
 }
 

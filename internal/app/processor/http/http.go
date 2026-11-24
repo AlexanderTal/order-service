@@ -63,7 +63,6 @@ func (p *httpProc) StartAsync(ctx context.Context, wg *sync.WaitGroup) {
 		return nil
 	})
 	processor.WatchForShutdown(ctx, wg, listenerCloser)
-
 	shutdownCloser := processor.NewCloserContextFunc(func(ctx context.Context) error {
 		err := p.server.Shutdown(ctx)
 		if err != nil && !errors.Is(err, net.ErrClosed) {

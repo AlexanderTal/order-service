@@ -6,11 +6,6 @@ import (
 	"net/http"
 )
 
-type httpCoder interface {
-	error
-	HTTPStatus() int
-}
-
 func SendJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -24,32 +19,20 @@ func SendEmpty(w http.ResponseWriter, status int) {
 }
 
 func HandleError(w http.ResponseWriter, r *http.Request, err error) {
-	var hc httpCoder
+	ErrorApply(r, err)
+
+	var hc interface {
+		HTTPStatus() int
+	}
 	if errors.As(err, &hc) {
-		ErrorApply(r, hc)
-		ErrorApplyStatusCode(r, hc.HTTPStatus())
-		sendError(w, hc)
+		status := hc.HTTPStatus()
+		ErrorApplyStatusCode(r, status)
+		sendError(w, status, err)
 		return
 	}
-
-	defaultErr := &defaultError{err: err}
-	ErrorApply(r, defaultErr)
-	ErrorApplyStatusCode(r, defaultErr.HTTPStatus())
-	sendError(w, defaultErr)
+	sendError(w, http.StatusInternalServerError, err)
 }
 
-func sendError(w http.ResponseWriter, err httpCoder) {
-	SendJSON(w, err.HTTPStatus(), map[string]string{"error": err.Error()})
-}
-
-type defaultError struct {
-	err error
-}
-
-func (e *defaultError) Error() string {
-	return "internal server error"
-}
-
-func (e *defaultError) HTTPStatus() int {
-	return http.StatusInternalServerError
+func sendError(w http.ResponseWriter, status int, err error) {
+	SendJSON(w, status, map[string]string{"error": err.Error()})
 }
