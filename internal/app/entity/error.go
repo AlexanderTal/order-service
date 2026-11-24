@@ -7,19 +7,11 @@ type AppError struct {
 	Message string
 }
 
-func (e *AppError) Error() string {
-	return e.Message
-}
-
-func (e *AppError) HTTPStatus() int {
-	return e.Status
-}
+func (e *AppError) Error() string   { return e.Message }
+func (e *AppError) HTTPStatus() int { return e.Status }
 
 func NewAppError(status int, message string) *AppError {
-	return &AppError{
-		Status:  status,
-		Message: message,
-	}
+	return &AppError{Status: status, Message: message}
 }
 
 var (

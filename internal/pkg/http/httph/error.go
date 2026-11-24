@@ -5,53 +5,63 @@ import (
 	"net/http"
 )
 
-type errorCtxKey struct{}
+type contextKeyError struct{}
 
-type Middleware = func(http.Handler) http.Handler
-
-type errorContext struct {
+type contextValueError struct {
 	err        error
 	statusCode int
 }
 
-func ErrorPrepare(r *http.Request) *http.Request {
-	if r.Context().Value(errorCtxKey{}) != nil {
-		return r
-	}
-	ctx := context.WithValue(r.Context(), errorCtxKey{}, &errorContext{
-		statusCode: http.StatusOK,
-	})
-	return r.WithContext(ctx)
+func errorPrepare(ctx context.Context) context.Context {
+	return context.WithValue(ctx, contextKeyError{}, &contextValueError{})
 }
 
-func ErrorApply(r *http.Request, err error) {
-	ctx, ok := r.Context().Value(errorCtxKey{}).(*errorContext)
-	if ok {
-		ctx.err = err
+func errorApply(ctx context.Context, err error) {
+	if v, ok := ctx.Value(contextKeyError{}).(*contextValueError); ok && v != nil {
+		v.err = err
 	}
 }
 
-func ErrorGet(r *http.Request) error {
-	ctx, ok := r.Context().Value(errorCtxKey{}).(*errorContext)
-	if ok {
-		return ctx.err
+func errorGet(ctx context.Context) error {
+	if v, ok := ctx.Value(contextKeyError{}).(*contextValueError); ok && v != nil {
+		return v.err
 	}
 	return nil
 }
 
-func ErrorApplyStatusCode(r *http.Request, code int) {
-	ctx, ok := r.Context().Value(errorCtxKey{}).(*errorContext)
-	if ok {
-		ctx.statusCode = code
+func errorApplyStatusCode(ctx context.Context, statusCode int) {
+	if v, ok := ctx.Value(contextKeyError{}).(*contextValueError); ok && v != nil {
+		v.statusCode = statusCode
 	}
 }
 
-func ErrorGetStatusCode(r *http.Request) int {
-	ctx, ok := r.Context().Value(errorCtxKey{}).(*errorContext)
-	if ok && ctx.statusCode != 0 {
-		return ctx.statusCode
+func errorGetStatusCode(ctx context.Context) int {
+	if v, ok := ctx.Value(contextKeyError{}).(*contextValueError); ok && v != nil {
+		return v.statusCode
 	}
-	return http.StatusOK
+	return 0
+}
+
+type Middleware = func(http.Handler) http.Handler
+
+func ErrorPrepare(r *http.Request) *http.Request {
+	return r.WithContext(errorPrepare(r.Context()))
+}
+
+func ErrorGet(r *http.Request) error {
+	return errorGet(r.Context())
+}
+
+func ErrorApply(r *http.Request, err error) {
+	errorApply(r.Context(), err)
+}
+
+func ErrorApplyStatusCode(r *http.Request, statusCode int) {
+	errorApplyStatusCode(r.Context(), statusCode)
+}
+
+func ErrorGetStatusCode(r *http.Request) int {
+	return errorGetStatusCode(r.Context())
 }
 
 func NewErrorMiddleware() Middleware {

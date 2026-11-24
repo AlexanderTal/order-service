@@ -2,7 +2,6 @@ package rprocessor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -20,13 +19,12 @@ import (
 )
 
 type httpProc struct {
-	server http.Server
 	addr   string
+	server *http.Server
 }
 
 func NewHTTP(hHealth rhandler.Health, cfg section.ProcessorWebServer) processor.Processor {
 	gin.SetMode(gin.ReleaseMode)
-
 	router := gin.New()
 
 	router.Use(adaptRequestMiddleware(httph.NewErrorMiddleware()))
@@ -40,37 +38,31 @@ func NewHTTP(hHealth rhandler.Health, cfg section.ProcessorWebServer) processor.
 		log.Info().Str("method", route.Method).Str("path", route.Path).Msg("Route registered")
 	}
 
-	p := &httpProc{addr: fmt.Sprintf(":%d", cfg.ListenPort)}
-	p.server.Handler = router
+	p := httpProc{addr: fmt.Sprintf(":%d", cfg.ListenPort)}
+	p.server = &http.Server{
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 
-	return p
+	return &p
 }
 
 func (p *httpProc) StartAsync(ctx context.Context, wg *sync.WaitGroup) {
-	lc := net.ListenConfig{}
+	var lc net.ListenConfig
 	l, err := lc.Listen(ctx, "tcp", p.addr)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to listen")
+		log.Fatal().Err(err).Msg("Failed to start listening TCP addr")
 	}
 
-	go p.serve(l)
 	log.Info().Str("listen_addr", p.addr).Msg("Listening of TCP addr for HTTP server has been started")
 
-	listenerCloser := processor.CloserFunc(func() error {
-		if err := l.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-			return err
-		}
-		return nil
-	})
-	processor.WatchForShutdown(ctx, wg, listenerCloser)
-	shutdownCloser := processor.NewCloserContextFunc(func(ctx context.Context) error {
-		err := p.server.Shutdown(ctx)
-		if err != nil && !errors.Is(err, net.ErrClosed) {
-			return err
-		}
-		return nil
-	}, ctx, 5*time.Second)
-	processor.WatchForShutdown(ctx, wg, shutdownCloser)
+	go p.serve(l)
+
+	processor.WatchForShutdown(ctx, wg, processor.CloserFunc(l.Close))
+	processor.WatchForShutdown(ctx, wg, processor.NewCloserContextFunc(
+		p.server.Shutdown,
+		context.Background(), 5*time.Second,
+	))
 }
 
 func (p *httpProc) serve(l net.Listener) {

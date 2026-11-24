@@ -5,22 +5,46 @@ import (
 	"io"
 	"sync"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
-type CloserFunc func() error
+func Wrap(ctx context.Context, wg *sync.WaitGroup, cb func(context.Context)) {
+	if wg != nil {
+		wg.Add(1)
+	}
+	go func() {
+		if wg != nil {
+			defer wg.Done()
+		}
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			cb(ctx)
+		}
+	}()
+}
+
+type (
+	CloserFunc        func() error
+	CloserContextFunc = func(ctx context.Context) error
+)
 
 func (f CloserFunc) Close() error {
 	return f()
 }
 
-func NewCloserContextFunc(f func(ctx context.Context) error, ctx context.Context, timeout time.Duration) io.Closer {
-	return CloserFunc(func() error {
-		shutdownCtx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-		return f(shutdownCtx)
-	})
+func NewCloserContextFunc(
+	f CloserContextFunc,
+	ctx context.Context, timeout time.Duration,
+) CloserFunc {
+	return func() error {
+		if timeout > 0 {
+			var cancelFunc context.CancelFunc
+			ctx, cancelFunc = context.WithTimeout(ctx, timeout)
+			defer cancelFunc()
+		}
+		return f(ctx)
+	}
 }
 
 func WatchForShutdown(ctx context.Context, wg *sync.WaitGroup, closer io.Closer) {
@@ -28,16 +52,6 @@ func WatchForShutdown(ctx context.Context, wg *sync.WaitGroup, closer io.Closer)
 	go func() {
 		defer wg.Done()
 		<-ctx.Done()
-		if err := closer.Close(); err != nil {
-			log.Error().Err(err).Msg("failed to close component")
-		}
+		_ = closer.Close()
 	}()
-}
-
-func Wrap(wg *sync.WaitGroup, f func() error) io.Closer {
-	return CloserFunc(func() error {
-		wg.Add(1)
-		defer wg.Done()
-		return f()
-	})
 }
