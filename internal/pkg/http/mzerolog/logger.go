@@ -42,14 +42,15 @@ func (m *middleware) Callback(c *gin.Context) {
 		sb.WriteString(" finished (or aborted) with error")
 	}
 
-	event := m.log.Debug()
+	var event *zerolog.Event
 	if err != nil {
 		event = m.log.Error().Err(err)
+	} else {
+		event = m.log.Debug()
 	}
 
 	event.
-		Str("method", c.Request.Method).
-		Str("uri", c.Request.RequestURI).
+		Ctx(c.Request.Context()).
 		Dur("exec_time", duration).
 		Str("client_ip", c.ClientIP()).
 		Msg(sb.String())
