@@ -66,3 +66,21 @@ func (c *Client) Close() error {
 	}
 	return sqlDB.Close()
 }
+
+func (c *Client) GetDB(ctx context.Context) *gorm.DB {
+	if tx := getTxFromCtx(ctx); tx != nil {
+		return tx
+	}
+	return c.db
+}
+
+func (c *Client) InsideTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	if getTxFromCtx(ctx) != nil {
+		return fn(ctx)
+	}
+
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txCtx := ctxWithTx(ctx, tx)
+		return fn(txCtx)
+	})
+}
