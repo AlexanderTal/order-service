@@ -23,9 +23,15 @@ and starts the HTTP server. Graceful shutdown on SIGINT/SIGTERM.
 
 func cmdWebServer(cCtx *cli.Context) error {
 	b := builder.NewBuilder(cCtx)
-	b.BuildConfig().
-		BuildRepoConnPostgres().
-		BuildProcHttp()
 
-	return b.Run()
+	b.BuildConfig()
+	b.BuildRepoConnPostgres()
+	b.BuildRepoOrder()
+	b.BuildServiceOrder()
+	b.BuildHandlerOrder()
+	b.BuildProcHttp()
+
+	b.Run()
+
+	return nil
 }
