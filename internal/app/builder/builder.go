@@ -89,6 +89,12 @@ func (b *Builder) Run() {
 	}
 
 	b.wg.Wait()
+
+	if b.connPostgres != nil {
+		if err := b.connPostgres.Close(); err != nil {
+			log.Error().Err(err).Msg("failed to close database connection")
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

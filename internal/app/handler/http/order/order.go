@@ -33,14 +33,13 @@ func (h *handler) Create(c *gin.Context) {
 	}
 
 	resp := entity.ResponseOrderCreate{
-		GUID:          order.GUID,
-		UserGUID:      order.UserGUID,
-		TotalPrice:    order.TotalPrice,
-		DeliveryPrice: order.DeliveryPrice,
-		Currency:      order.Currency,
-		Status:        order.Status,
-		CreatedAt:     order.CreatedAt,
-		Items:         mapItems(order.Items),
+		GUID:       order.GUID,
+		UserGUID:   order.UserGUID,
+		TotalPrice: order.TotalPrice,
+		Currency:   order.Currency,
+		Status:     order.Status,
+		CreatedAt:  order.CreatedAt,
+		Items:      mapItems(order.Items),
 	}
 
 	httph.SendJSON(c.Writer, http.StatusCreated, resp)
@@ -60,15 +59,14 @@ func (h *handler) GetByGUID(c *gin.Context) {
 	}
 
 	resp := entity.ResponseOrderGet{
-		GUID:          order.GUID,
-		UserGUID:      order.UserGUID,
-		TotalPrice:    order.TotalPrice,
-		DeliveryPrice: order.DeliveryPrice,
-		Currency:      order.Currency,
-		Status:        order.Status,
-		CreatedAt:     order.CreatedAt,
-		UpdatedAt:     order.UpdatedAt,
-		Items:         mapItems(order.Items),
+		GUID:       order.GUID,
+		UserGUID:   order.UserGUID,
+		TotalPrice: order.TotalPrice,
+		Currency:   order.Currency,
+		Status:     order.Status,
+		CreatedAt:  order.CreatedAt,
+		UpdatedAt:  order.UpdatedAt,
+		Items:      mapItems(order.Items),
 	}
 
 	httph.SendJSON(c.Writer, http.StatusOK, resp)
@@ -94,15 +92,14 @@ func (h *handler) Update(c *gin.Context) {
 	}
 
 	resp := entity.ResponseOrderUpdate{
-		GUID:          order.GUID,
-		UserGUID:      order.UserGUID,
-		TotalPrice:    order.TotalPrice,
-		DeliveryPrice: order.DeliveryPrice,
-		Currency:      order.Currency,
-		Status:        order.Status,
-		CreatedAt:     order.CreatedAt,
-		UpdatedAt:     order.UpdatedAt,
-		Items:         mapItems(order.Items),
+		GUID:       order.GUID,
+		UserGUID:   order.UserGUID,
+		TotalPrice: order.TotalPrice,
+		Currency:   order.Currency,
+		Status:     order.Status,
+		CreatedAt:  order.CreatedAt,
+		UpdatedAt:  order.UpdatedAt,
+		Items:      mapItems(order.Items),
 	}
 
 	httph.SendJSON(c.Writer, http.StatusOK, resp)
@@ -126,7 +123,7 @@ func (h *handler) Delete(c *gin.Context) {
 func (h *handler) List(c *gin.Context) {
 	var req entity.RequestOrderList
 
-	if c.Request.ContentLength > 0 {
+	if c.Request.ContentLength != 0 {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			httph.HandleError(c.Writer, c.Request, entity.ErrIncorrectParameters)
 			return
@@ -142,14 +139,13 @@ func (h *handler) List(c *gin.Context) {
 	listItems := make([]entity.ResponseOrderListItem, len(orders))
 	for i, o := range orders {
 		listItems[i] = entity.ResponseOrderListItem{
-			GUID:          o.GUID,
-			UserGUID:      o.UserGUID,
-			TotalPrice:    o.TotalPrice,
-			DeliveryPrice: o.DeliveryPrice,
-			Currency:      o.Currency,
-			Status:        o.Status,
-			CreatedAt:     o.CreatedAt,
-			UpdatedAt:     o.UpdatedAt,
+			GUID:       o.GUID,
+			UserGUID:   o.UserGUID,
+			TotalPrice: o.TotalPrice,
+			Currency:   o.Currency,
+			Status:     o.Status,
+			CreatedAt:  o.CreatedAt,
+			UpdatedAt:  o.UpdatedAt,
 		}
 	}
 

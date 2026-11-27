@@ -38,15 +38,14 @@ func (s *srv) Create(ctx context.Context, req entity.RequestOrderCreate) (entity
 	}
 
 	order := entity.Order{
-		GUID:          uuid.Must(uuid.NewV4()),
-		UserGUID:      req.UserGUID,
-		TotalPrice:    totalPrice,
-		DeliveryPrice: 0,
-		Currency:      req.Currency,
-		Status:        "pending",
-		CreatedAt:     now,
-		UpdatedAt:     now,
-		Items:         items,
+		GUID:       uuid.Must(uuid.NewV4()),
+		UserGUID:   req.UserGUID,
+		TotalPrice: totalPrice,
+		Currency:   req.Currency,
+		Status:     "pending",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		Items:      items,
 	}
 
 	if err := s.repoOrder.Create(ctx, order); err != nil {

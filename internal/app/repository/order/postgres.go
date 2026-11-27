@@ -32,8 +32,9 @@ func (r *repoPg) GetByGUID(ctx context.Context, guid uuid.UUID) (entity.Order, e
 	var order entity.Order
 	err := r.conn.GetDB(ctx).WithContext(ctx).
 		Preload("Items").
-		Where("guid = ?", guid).
+		Where("guid = ?", guid.String()).
 		First(&order).Error
+
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return entity.Order{}, entity.ErrNotFound
@@ -46,7 +47,7 @@ func (r *repoPg) GetByGUID(ctx context.Context, guid uuid.UUID) (entity.Order, e
 func (r *repoPg) Update(ctx context.Context, order entity.Order) error {
 	res := r.conn.GetDB(ctx).WithContext(ctx).
 		Model(&entity.Order{}).
-		Where("guid = ?", order.GUID).
+		Where("guid = ?", order.GUID.String()).
 		Updates(map[string]any{
 			"status":     order.Status,
 			"updated_at": time.Now(),
@@ -63,7 +64,7 @@ func (r *repoPg) Update(ctx context.Context, order entity.Order) error {
 
 func (r *repoPg) Delete(ctx context.Context, guid uuid.UUID) error {
 	res := r.conn.GetDB(ctx).WithContext(ctx).
-		Where("guid = ?", guid).
+		Where("guid = ?", guid.String()).
 		Delete(&entity.Order{})
 
 	if res.Error != nil {
@@ -83,7 +84,7 @@ func (r *repoPg) List(ctx context.Context, status *string, userGUID *uuid.UUID) 
 		query = query.Where("status = ?", *status)
 	}
 	if userGUID != nil {
-		query = query.Where("user_guid = ?", *userGUID)
+		query = query.Where("user_guid = ?", userGUID.String())
 	}
 
 	if err := query.Find(&orders).Error; err != nil {
