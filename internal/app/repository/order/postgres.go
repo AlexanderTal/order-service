@@ -34,7 +34,6 @@ func (r *repoPg) GetByGUID(ctx context.Context, guid uuid.UUID) (entity.Order, e
 		Preload("Items").
 		Where("guid = ?", guid.String()).
 		First(&order).Error
-
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return entity.Order{}, entity.ErrNotFound
