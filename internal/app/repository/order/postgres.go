@@ -51,7 +51,6 @@ func (r *repoPg) Update(ctx context.Context, order entity.Order) error {
 			"status":     order.Status,
 			"updated_at": time.Now(),
 		})
-
 	if res.Error != nil {
 		return res.Error
 	}
@@ -65,7 +64,6 @@ func (r *repoPg) Delete(ctx context.Context, guid uuid.UUID) error {
 	res := r.conn.GetDB(ctx).WithContext(ctx).
 		Where("guid = ?", guid.String()).
 		Delete(&entity.Order{})
-
 	if res.Error != nil {
 		return res.Error
 	}
